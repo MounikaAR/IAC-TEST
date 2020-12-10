@@ -1,0 +1,222 @@
+---
+apiVersion: kops.k8s.io/v1alpha2
+kind: Cluster
+metadata:
+  name: dev-k8s.dev.barath-devops.com
+spec:
+  api:
+    loadBalancer:
+      crossZoneLoadBalancing: true
+      type: Public
+  authorization:
+    rbac: {}
+  channel: stable
+  cloudProvider: aws
+  configBase: s3://kops-hope-tutors-bucket/dev-k8s.dev.barath-devops.com
+  dnsZone: dev.barath-devops.com
+  etcdClusters:
+    - cpuRequest: 200m
+      etcdMembers:
+        - instanceGroup: master-us-east-1a
+          name: us-east-1a
+          volumeType: gp2
+          volumeSize: 50
+      memoryRequest: 100Mi
+      name: main
+      version: 3.2.24
+    - cpuRequest: 100m
+      etcdMembers:
+        - instanceGroup: master-us-east-1a
+          name: us-east-1a
+          volumeType: gp2
+          volumeSize: 50
+      memoryRequest: 100Mi
+      name: events
+      version: 3.2.24
+  iam:
+    allowContainerRegistry: true
+    legacy: false
+  enableAdmissionPlugins:
+    - NamespaceLifecycle
+    - LimitRanger
+    - ServiceAccount
+    - PersistentVolumeLabel
+    - DefaultStorageClass
+    - DefaultTolerationSeconds
+    - MutatingAdmissionWebhook
+    - ValidatingAdmissionWebhook
+    - NodeRestriction
+    - ResourceQuota
+  kubelet:
+    anonymousAuth: false
+    enableCustomMetrics: true
+  kubernetesApiAccess:
+    - 0.0.0.0/0
+  kubeAPIServer:
+    auditLogPath: /var/log/kube-apiserver-audit.log
+    auditLogMaxAge: 10
+    auditLogMaxBackups: 1
+    auditLogMaxSize: 100
+    auditPolicyFile: /srv/kubernetes/audit.yaml
+    serviceNodePortRange: 30000-33000
+    disableBasicAuth: true
+  kubernetesVersion: 1.15.4
+  kubeDNS:
+    provider: CoreDNS
+  masterPublicName: api.dev-k8s.dev.barath-devops.com
+  keyStore: s3://kops-hope-tutors-bucket/dev-k8s.dev.barath-devops.com/pki
+  secretStore: s3://kops-hope-tutors-bucket/dev-k8s.dev.barath-devops.com/secrets
+  networkCIDR: 10.0.0.0/16
+  networkID: vpc-1234
+  networking:
+    calico:
+      majorVersion: v3
+  nonMasqueradeCIDR: 100.64.0.0/10
+  sshAccess:
+    - 0.0.0.0/0
+  subnets:
+    # Public subnets
+    
+    - id:   subnet-4
+      name:  public-a
+      type: "Public"
+      zone: us-east-1a
+    
+    - id:   subnet-5
+      name:  public-b
+      type: "Public"
+      zone: us-east-1b
+    
+    - id:   subnet-6
+      name:  public-c
+      type: "Public"
+      zone: us-east-1c
+    
+    # Private subnets
+    
+    - id:   subnet-1
+      name: private-a
+      egress: nat-123456
+      type: "Private"
+      zone: us-east-1a
+    
+    - id:   subnet-2
+      name: bprivate-b
+      egress: nat-123456
+      type: "Private"
+      zone: us-east-1b
+    
+    - id:   subnet-3
+      name: private-c
+      egress: nat-123456
+      type: "Private"
+      zone: us-east-1c
+    
+  topology:
+    bastion:
+      bastionPublicName: bastion.dev-k8s.dev.barath-devops.com
+    dns:
+      type: Public
+    masters: private
+    nodes: private
+  sshKeyName: kops_key
+  assets:
+    containerRegistry: 932250589015.dkr.ecr.us-east-1.amazonaws.com
+---
+
+apiVersion: kops.k8s.io/v1alpha2
+kind: InstanceGroup
+metadata:
+  creationTimestamp: null
+  labels:
+    kops.k8s.io/cluster: dev-k8s.dev.barath-devops.com
+  name: master-us-east-1a
+spec:
+  image: kope.io/k8s-1.14-debian-stretch-amd64-hvm-ebs-2019-08-16
+  machineType: t2.micro
+  maxPrice: "0.01"
+  maxSize: 1
+  minSize: 1
+  nodeLabels:
+    kops.k8s.io/instancegroup: master-us-east-1a
+  role: Master
+  subnets:
+  - us-east-1a
+
+---
+
+apiVersion: kops.k8s.io/v1alpha2
+kind: InstanceGroup
+metadata:
+  creationTimestamp: null
+  labels:
+    kops.k8s.io/cluster: dev-k8s.dev.barath-devops.com
+  name: worker-nodes-mixed
+spec:
+  image: kope.io/k8s-1.14-debian-stretch-amd64-hvm-ebs-2019-08-16
+  machineType: t2.micro
+  maxSize: 5
+  minSize: 1
+  mixedInstancesPolicy:
+    instances:
+      - t2.micro
+      - t2.medium
+    onDemandAboveBase: 5
+    spotInstancePools: 3
+  nodeLabels:
+    kops.k8s.io/instancegroup: worker-nodes-mixed
+  role: Node
+  subnets:
+  
+  - us-east-1a
+  
+  - us-east-1b
+  
+  - us-east-1c
+  
+
+---
+
+apiVersion: kops.k8s.io/v1alpha2
+kind: InstanceGroup
+metadata:
+  creationTimestamp: null
+  labels:
+    kops.k8s.io/cluster: dev-k8s.dev.barath-devops.com
+  name: worker-nodes
+spec:
+  image: kope.io/k8s-1.14-debian-stretch-amd64-hvm-ebs-2019-08-16
+  machineType: t2.micro
+  maxSize: 2
+  minSize: 2
+  nodeLabels:
+    kops.k8s.io/instancegroup: nodes
+  role: Node
+  subnets:
+  
+  - us-east-1a
+  
+  - us-east-1b
+  
+  - us-east-1c
+  
+
+---
+
+apiVersion: kops.k8s.io/v1alpha2
+kind: InstanceGroup
+metadata:
+  creationTimestamp: null
+  labels:
+    kops.k8s.io/cluster: dev-k8s.dev.barath-devops.com
+  name: bastions
+spec:
+  image: kope.io/k8s-1.14-debian-stretch-amd64-hvm-ebs-2019-08-16
+  machineType: t2.micro
+  maxSize: 1
+  minSize: 1
+  nodeLabels:
+    kops.k8s.io/instancegroup: bastions
+  role: Bastion
+  subnets:
+  - us-east-1a

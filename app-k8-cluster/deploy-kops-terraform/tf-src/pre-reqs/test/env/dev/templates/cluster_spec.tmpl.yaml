@@ -1,0 +1,192 @@
+---
+apiVersion: kops.k8s.io/v1alpha2
+kind: Cluster
+metadata:
+  name: {{.cluster}}.{{.dnsZone}}
+spec:
+  api:
+    loadBalancer:
+      crossZoneLoadBalancing: true
+      type: Public
+  authorization:
+    rbac: {}
+  channel: stable
+  cloudProvider: aws
+  configBase: s3://{{.bucket}}/{{.cluster}}.{{.dnsZone}}
+  dnsZone: {{.dnsZone}}
+  etcdClusters:
+    - cpuRequest: 200m
+      etcdMembers:
+        - instanceGroup: master-{{ (index .privateSubnets 0).availability_zone}}
+          name: {{ (index .privateSubnets 0).availability_zone}}
+          volumeType: gp2
+          volumeSize: 50
+      memoryRequest: 100Mi
+      name: main
+      version: 3.2.24
+    - cpuRequest: 100m
+      etcdMembers:
+        - instanceGroup: master-{{ (index .privateSubnets 0).availability_zone}}
+          name: {{ (index .privateSubnets 0).availability_zone}}
+          volumeType: gp2
+          volumeSize: 50
+      memoryRequest: 100Mi
+      name: events
+      version: 3.2.24
+  iam:
+    allowContainerRegistry: true
+    legacy: false
+  enableAdmissionPlugins:
+    - NamespaceLifecycle
+    - LimitRanger
+    - ServiceAccount
+    - PersistentVolumeLabel
+    - DefaultStorageClass
+    - DefaultTolerationSeconds
+    - MutatingAdmissionWebhook
+    - ValidatingAdmissionWebhook
+    - NodeRestriction
+    - ResourceQuota
+  kubelet:
+    anonymousAuth: false
+    enableCustomMetrics: true
+  kubernetesApiAccess:
+    - 0.0.0.0/0
+  kubeAPIServer:
+    auditLogPath: /var/log/kube-apiserver-audit.log
+    auditLogMaxAge: 10
+    auditLogMaxBackups: 1
+    auditLogMaxSize: 100
+    auditPolicyFile: /srv/kubernetes/audit.yaml
+    serviceNodePortRange: 30000-33000
+    disableBasicAuth: true
+  kubernetesVersion: 1.15.4
+  kubeDNS:
+    provider: CoreDNS
+  masterPublicName: api.{{.cluster}}.{{.dnsZone}}
+  keyStore: s3://{{.bucket}}/{{.cluster}}.{{.dnsZone}}/pki
+  secretStore: s3://{{.bucket}}/{{.cluster}}.{{.dnsZone}}/secrets
+  networkCIDR: {{.vpc.cidr}}
+  networkID: {{.vpc.id}}
+  networking:
+    calico:
+      majorVersion: v3
+  nonMasqueradeCIDR: 100.64.0.0/10
+  sshAccess:
+    - 0.0.0.0/0
+  subnets:
+    # Public subnets
+    {{range $i, $subnet := .publicSubnets}}
+    - id:   {{$subnet.id}}
+      name:  {{$subnet.name}}
+      type: "Public"
+      zone: {{$subnet.availability_zone}}
+    {{end}}
+    # Private subnets
+    {{range $i, $subnet := .privateSubnets}}
+    - id:   {{$subnet.id}}
+      name: {{$subnet.name}}
+      egress: {{$.nat_gateway_id}}
+      type: "Private"
+      zone: {{$subnet.availability_zone}}
+    {{end}}
+  topology:
+    bastion:
+      bastionPublicName: bastion.{{.cluster}}.{{.dnsZone}}
+    dns:
+      type: Public
+    masters: private
+    nodes: private
+  sshKeyName: kops_key
+  assets:
+    containerRegistry: 932250589015.dkr.ecr.us-east-1.amazonaws.com
+---
+
+apiVersion: kops.k8s.io/v1alpha2
+kind: InstanceGroup
+metadata:
+  creationTimestamp: null
+  labels:
+    kops.k8s.io/cluster: {{.cluster}}.{{.dnsZone}}
+  name: master-us-east-1a
+spec:
+  image: kope.io/k8s-1.14-debian-stretch-amd64-hvm-ebs-2019-08-16
+  machineType: t2.micro
+  maxPrice: "0.01"
+  maxSize: 1
+  minSize: 1
+  nodeLabels:
+    kops.k8s.io/instancegroup: master-us-east-1a
+  role: Master
+  subnets:
+  - {{ (index .privateSubnets 0).availability_zone}}
+
+---
+
+apiVersion: kops.k8s.io/v1alpha2
+kind: InstanceGroup
+metadata:
+  creationTimestamp: null
+  labels:
+    kops.k8s.io/cluster: {{.cluster}}.{{.dnsZone}}
+  name: worker-nodes-mixed
+spec:
+  image: kope.io/k8s-1.14-debian-stretch-amd64-hvm-ebs-2019-08-16
+  machineType: t2.micro
+  maxSize: 5
+  minSize: 1
+  mixedInstancesPolicy:
+    instances:
+      - t2.micro
+      - t2.medium
+    onDemandAboveBase: 5
+    spotInstancePools: 3
+  nodeLabels:
+    kops.k8s.io/instancegroup: worker-nodes-mixed
+  role: Node
+  subnets:
+  {{range $i, $subnet := .privateSubnets}}
+  - {{$subnet.availability_zone}}
+  {{end}}
+
+---
+
+apiVersion: kops.k8s.io/v1alpha2
+kind: InstanceGroup
+metadata:
+  creationTimestamp: null
+  labels:
+    kops.k8s.io/cluster: {{.cluster}}.{{.dnsZone}}
+  name: worker-nodes
+spec:
+  image: kope.io/k8s-1.14-debian-stretch-amd64-hvm-ebs-2019-08-16
+  machineType: t2.micro
+  maxSize: 2
+  minSize: 2
+  nodeLabels:
+    kops.k8s.io/instancegroup: nodes
+  role: Node
+  subnets:
+  {{range $i, $subnet := .privateSubnets}}
+  - {{$subnet.availability_zone}}
+  {{end}}
+
+---
+
+apiVersion: kops.k8s.io/v1alpha2
+kind: InstanceGroup
+metadata:
+  creationTimestamp: null
+  labels:
+    kops.k8s.io/cluster: {{.cluster}}.{{.dnsZone}}
+  name: bastions
+spec:
+  image: kope.io/k8s-1.14-debian-stretch-amd64-hvm-ebs-2019-08-16
+  machineType: t2.micro
+  maxSize: 1
+  minSize: 1
+  nodeLabels:
+    kops.k8s.io/instancegroup: bastions
+  role: Bastion
+  subnets:
+  - {{ (index .publicSubnets 0).availability_zone}}

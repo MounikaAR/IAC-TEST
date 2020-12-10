@@ -1,0 +1,49 @@
+# values.yaml
+cluster: dev-k8s
+dnsZone: dev.barath-devops.com
+kubernetesVersion: 1.15.4
+bucket: kops-hope-tutors-bucket
+nodeImage: ami-12345
+
+vpc:
+  id: vpc-1234
+  cidr: 10.0.0.0/16
+
+privateSubnets:
+  - name: private-a
+    cidr: test
+    id:   subnet-1
+    type: Private
+    availability_zone: us-east-1a
+  - name: bprivate-b
+    cidr: test
+    id:   subnet-2
+    type: Private
+    availability_zone: us-east-1b
+  - name: private-c
+    cidr: test
+    id:   subnet-3
+    type: Private
+    availability_zone: us-east-1c
+
+
+publicSubnets:
+  - name: public-a
+    cidr: test
+    id:   subnet-4
+    type: Public
+    availability_zone: us-east-1a
+  - name: public-b
+    cidr: test
+    id:   subnet-5
+    type: Public
+    availability_zone: us-east-1b
+  - name: public-c
+    cidr: test
+    id:   subnet-6
+    type: Public
+    availability_zone: us-east-1c
+
+
+
+nat_gateway_id: nat-123456

@@ -1,0 +1,21 @@
+# values.yaml
+cluster: ${cluster_name}
+dnsZone: ${dns_zone}
+kubernetesVersion: ${kubernetes_version}
+bucket: ${kops_state_bucket}
+nodeImage: ${node_image}
+
+vpc:
+  id: ${vpc_id}
+  cidr: ${vpc_cidr}
+
+privateSubnets:
+${private_subnets}
+
+publicSubnets:
+${public_subnets}
+
+
+nat_gateway_id: ${nat_gateway_id}
+
+keyName: ${key_name}
